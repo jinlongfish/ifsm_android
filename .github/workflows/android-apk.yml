@@ -1,0 +1,58 @@
+name: Build Android APK (Buildozer)
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.py'
+      - 'buildozer.spec'
+      - '.github/workflows/android-apk.yml'
+jobs:
+  build-apk:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - name: Cache pip, gradle, buildozer
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.gradle/caches
+          .buildozer
+        key: ${{ runner.os }}-apk-${{ hashFiles('**/buildozer.spec') }}
+    - name: Install system deps
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y \
+          build-essential git zip unzip openjdk-17-jdk \
+          libffi-dev libssl-dev liblzma-dev zlib1g-dev \
+          libncurses5 libncurses5-dev \
+          libtiff5 libjpeg8 libopenal1 pulseaudio \
+          libgl1-mesa-dev libgles2-mesa-dev \
+          libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+          libmtdev-dev
+        java -version
+        python3 --version
+    - name: Install buildozer
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install "cython==0.29.*"
+        pip install buildozer
+    - name: Build debug APK
+      env:
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      run: |
+        buildozer android debug
+    - name: Upload APK artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ifsm-android-apk
+        path: |
+          bin/*.apk
+          .buildozer/android/platform/build-armeabi-v7a/dists/*/bin/*.apk
+          .buildozer/android/platform/build-arm64-v8a/dists/*/bin/*.apk
